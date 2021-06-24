@@ -1,7 +1,6 @@
 package com.github.falsepattern.jblotter.util;
 
 import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -9,8 +8,6 @@ import java.io.InputStream;
 
 public class EndianInputStream extends FilterInputStream implements DataInput {
     private boolean littleEndian;
-    private boolean hasUndisposed = false;
-    private int undisposed = 0;
     public EndianInputStream(InputStream in, boolean littleEndian) {
         super(in);
         this.littleEndian = littleEndian;
@@ -57,14 +54,9 @@ public class EndianInputStream extends FilterInputStream implements DataInput {
 
     @Override
     public int readUnsignedByte() throws IOException {
-        if (hasUndisposed) {
-            hasUndisposed = false;
-            return undisposed;
-        } else {
-            int read = read();
-            if (read == -1) throw new EOFException("Reached end of while while trying to read the next byte!");
-            return read;
-        }
+        int read = read();
+        if (read == -1) throw new EOFException("Reached end of while while trying to read the next byte!");
+        return read;
     }
 
     @Override
@@ -74,6 +66,7 @@ public class EndianInputStream extends FilterInputStream implements DataInput {
 
     @Override
     public int readUnsignedShort() throws IOException {
+        //noinspection IfStatementWithIdenticalBranches
         if (littleEndian) {
             return readUnsignedByte() | (readUnsignedByte() << 8);
         } else {

@@ -1,8 +1,6 @@
 package com.github.falsepattern.jblotter.util;
 
-import java.io.DataInput;
 import java.io.DataOutput;
-import java.io.FilterInputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;

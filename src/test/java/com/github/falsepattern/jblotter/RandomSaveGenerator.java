@@ -7,22 +7,11 @@ import com.github.falsepattern.jblotter.objects.component.Wire;
 import com.github.falsepattern.jblotter.objects.component.pegs.Input;
 import com.github.falsepattern.jblotter.objects.component.pegs.Output;
 import com.github.falsepattern.jblotter.objects.component.pegs.PegAddress;
-import com.github.falsepattern.jblotter.util.EndianInputStream;
-import com.github.falsepattern.jblotter.util.EndianOutputStream;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Objects;
 import java.util.Random;
 
 public class RandomSaveGenerator {
