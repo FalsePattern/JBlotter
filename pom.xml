@@ -6,7 +6,7 @@
 
     <groupId>com.github.falsepattern</groupId>
     <artifactId>jblotter</artifactId>
-    <version>0.0.1</version>
+    <version>0.1.0</version>
 
     <properties>
         <maven.compiler.source>16</maven.compiler.source>
@@ -24,6 +24,11 @@
             <artifactId>junit-jupiter</artifactId>
             <version>5.7.1</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.joml</groupId>
+            <artifactId>joml</artifactId>
+            <version>1.10.1</version>
         </dependency>
     </dependencies>
 
