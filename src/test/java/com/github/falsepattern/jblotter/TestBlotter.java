@@ -1,8 +1,8 @@
 package com.github.falsepattern.jblotter;
 
 import com.github.falsepattern.jblotter.objects.BlotterFile;
-import com.github.falsepattern.jblotter.util.EndianInputStream;
-import com.github.falsepattern.jblotter.util.EndianOutputStream;
+import com.github.falsepattern.jblotter.util.serialization.EndianInputStream;
+import com.github.falsepattern.jblotter.util.serialization.EndianOutputStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

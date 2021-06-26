@@ -1,5 +1,6 @@
-package com.github.falsepattern.jblotter.util;
+package com.github.falsepattern.jblotter.util.serialization;
 
+import com.github.falsepattern.jblotter.util.Serializable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -28,4 +29,15 @@ public class SerializationUtil {
         output.writeFloat(rotation.z);
         output.writeFloat(rotation.w);
     }
+
+    public static void serializeArrayWithoutLength(DataOutput output, Serializable[] array) throws IOException {
+        serializeArrayWithoutLength(output, array, 0, array.length);
+    }
+
+    public static void serializeArrayWithoutLength(DataOutput output, Serializable[] array, int start, int endNonInclusive) throws IOException {
+        for (int i = start; i < endNonInclusive; i++) {
+            array[i].serialize(output);
+        }
+    }
+
 }

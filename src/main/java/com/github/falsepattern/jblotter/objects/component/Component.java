@@ -1,18 +1,26 @@
 package com.github.falsepattern.jblotter.objects.component;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.github.falsepattern.jblotter.util.Serializable;
 import com.github.falsepattern.jblotter.objects.component.pegs.Input;
 import com.github.falsepattern.jblotter.objects.component.pegs.Output;
-import com.github.falsepattern.jblotter.util.SerializationUtil;
+import com.github.falsepattern.jblotter.util.json.JsonParseException;
+import com.github.falsepattern.jblotter.util.json.JsonUtil;
+import com.github.falsepattern.jblotter.util.serialization.SerializationUtil;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Objects;
 
-public record Component(int address, int parentAddress, short componentID, Vector3f localPosition, Quaternionf localRotation, Input[] inputs, Output[] outputs, byte[] customData) {
+public record Component(int address, int parentAddress, short componentID, Vector3f localPosition, Quaternionf localRotation, Input[] inputs, Output[] outputs, byte[] customData) implements Serializable {
     public static Component deserialize(DataInput input, Component[] components) throws IOException {
         var address = input.readInt();
         var parentAddress = input.readInt();
@@ -31,6 +39,18 @@ public record Component(int address, int parentAddress, short componentID, Vecto
         var customData = new byte[input.readInt()];
         input.readFully(customData);
         return new Component(address, parentAddress, componentID, position, rotation, inputs, outputs, customData);
+    }
+
+    public static Component fromJson(JsonNode node) throws JsonParseException {
+        JsonUtil.verifyJsonObject(node, new String[]{"componentAddress", "parentAddress", "componentID", "localPosition", "localRotation", "inputs", "outputs", "customData"}, new JsonNodeType[]{JsonNodeType.NUMBER, JsonNodeType.NUMBER, JsonNodeType.NUMBER, JsonNodeType.OBJECT, JsonNodeType.OBJECT, JsonNodeType.ARRAY, JsonNodeType.ARRAY, JsonNodeType.ARRAY});
+        var componentAddress = JsonUtil.asUnsignedInteger(node.get("componentAddress"), BigInteger.valueOf(0xffffffffL));
+        var parentAddress = JsonUtil.asUnsignedInteger(node.get("parentAddress"), BigInteger.valueOf(0xffffffffL));
+        var componentID = JsonUtil.asUnsignedInteger(node.get("componentID"), BigInteger.valueOf(0xffff));
+        return new Component((int)componentAddress.longValueExact(), (int)parentAddress.longValueExact(), (short) componentID.intValueExact(),
+                JsonUtil.parseVector(node.get("localPosition")), JsonUtil.parseQuaternion(node.get("localRotation")),
+                JsonUtil.parseArray(node.get("inputs"), 0, 0, Input[]::new, Input::fromJson),
+                JsonUtil.parseArray(node.get("outputs"), 0, 0, Output[]::new, Output::fromJson),
+                JsonUtil.parseByteArray(node.get("customData")));
     }
 
     public void serialize(DataOutput output) throws IOException {
@@ -65,6 +85,20 @@ public record Component(int address, int parentAddress, short componentID, Vecto
         result = 31 * result + Arrays.hashCode(inputs);
         result = 31 * result + Arrays.hashCode(outputs);
         result = 31 * result + Arrays.hashCode(customData);
+        return result;
+    }
+
+    @Override
+    public JsonNode toJson() {
+        var result = new ObjectNode(JsonNodeFactory.instance);
+        result.put("componentAddress", Integer.toUnsignedLong(address));
+        result.put("parentAddress", Integer.toUnsignedLong(parentAddress));
+        result.put("componentID", componentID);
+        result.set("localPosition", JsonUtil.jsonifyVector3f(localPosition));
+        result.set("localRotation", JsonUtil.jsonifyQuaternionf(localRotation));
+        result.set("inputs", JsonUtil.jsonifyArray(inputs, Input::toJson));
+        result.set("outputs", JsonUtil.jsonifyArray(outputs, Output::toJson));
+        result.set("customData", JsonUtil.jsonifyByteArray(customData));
         return result;
     }
 }

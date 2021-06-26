@@ -1,4 +1,4 @@
-package com.github.falsepattern.jblotter.util;
+package com.github.falsepattern.jblotter.util.serialization;
 
 import java.io.DataInput;
 import java.io.EOFException;

@@ -17,7 +17,7 @@ import java.util.Random;
 public class RandomSaveGenerator {
     private static String generateRandomString(Random random) {
         var text = new StringBuilder();
-        int length = 32 + random.nextInt(96);
+        int length = 4 + random.nextInt(16);
         for (int i = 0; i < length; i++) {
             text.append((char)(32 + random.nextInt(95)));
         }
@@ -26,19 +26,13 @@ public class RandomSaveGenerator {
 
     public static BlotterFile generateSave(boolean world) {
         var random = new Random();
-        var gameVersion = new GameVersion(random.nextInt(), random.nextInt(), random.nextInt(), random.nextInt());
-        var componentIDs = new ArrayList<String>();
+        var gameVersion = new GameVersion(random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE));
+        var componentIDs = new String[16 + random.nextInt(64)];
+        for (int i = 0; i < componentIDs.length; i++) componentIDs[i] = generateRandomString(random);
         var components = new Component[128 + random.nextInt(512)];
         var circuitStates = 16 + random.nextInt(65520);
         for (int i = 1; i < components.length; i++) {
-            var name = generateRandomString(random);
-            short id;
-            if (componentIDs.contains(name)) {
-                id = (short) componentIDs.indexOf(name);
-            } else {
-                id = (short) componentIDs.size();
-                componentIDs.add(name);
-            }
+            short id = (short)random.nextInt(componentIDs.length);
             var inputs = new Input[random.nextInt(255)];
             for (int j = 0; j < inputs.length; j++) {
                 inputs[j] = new Input(random.nextBoolean(), random.nextInt(circuitStates));
@@ -71,7 +65,7 @@ public class RandomSaveGenerator {
                 if (random.nextBoolean()) subassemblyCircuitStates.add(i);
             }
         }
-        return new BlotterFile((byte)0x05, gameVersion, world, componentIDs.toArray(String[]::new), components, wires, world ? BitSet.valueOf(states) : null, world ? null : subassemblyCircuitStates.stream().mapToInt(Integer::intValue).toArray());
+        return new BlotterFile((byte)0x05, gameVersion, world, componentIDs, components, wires, world ? BitSet.valueOf(states) : null, world ? null : subassemblyCircuitStates.stream().mapToInt(Integer::intValue).toArray());
     }
 
     private static PegAddress generatePegAddress(Component[] components, Random random) {
