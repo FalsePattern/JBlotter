@@ -20,33 +20,99 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Objects;
 
-public record Component(int address, int parentAddress, short componentID, Vector3f localPosition, Quaternionf localRotation, Input[] inputs, Output[] outputs, byte[] customData) implements Serializable {
+public final class Component implements Serializable {
+    private final int address;
+    private final int parentAddress;
+    private final short componentID;
+    private final Vector3f localPosition;
+    private final Quaternionf localRotation;
+    private final Input[] inputs;
+    private final Output[] outputs;
+    private final byte[] customData;
+
+    public Component(int address, int parentAddress, short componentID, Vector3f localPosition, Quaternionf localRotation, Input[] inputs, Output[] outputs, byte[] customData) {
+        this.address = address;
+        this.parentAddress = parentAddress;
+        this.componentID = componentID;
+        this.localPosition = localPosition;
+        this.localRotation = localRotation;
+        this.inputs = inputs;
+        this.outputs = outputs;
+        this.customData = customData;
+    }
+
+    public int address() {
+        return address;
+    }
+
+    public int parentAddress() {
+        return parentAddress;
+    }
+
+    public short componentID() {
+        return componentID;
+    }
+
+    public Vector3f localPosition() {
+        return localPosition;
+    }
+
+    public Quaternionf localRotation() {
+        return localRotation;
+    }
+
+    public Input[] inputs() {
+        return inputs;
+    }
+
+    public Output[] outputs() {
+        return outputs;
+    }
+
+    public byte[] customData() {
+        return customData;
+    }
+
+    @Override
+    public String toString() {
+        return "Component[" +
+                "address=" + address + ", " +
+                "parentAddress=" + parentAddress + ", " +
+                "componentID=" + componentID + ", " +
+                "localPosition=" + localPosition + ", " +
+                "localRotation=" + localRotation + ", " +
+                "inputs=" + Arrays.toString(inputs) + ", " +
+                "outputs=" + Arrays.toString(outputs) + ", " +
+                "customData=" + Arrays.toString(customData) + ']';
+    }
+
     public static Component deserialize(DataInput input, Component[] components) throws IOException {
-        var address = input.readInt();
-        var parentAddress = input.readInt();
-        if (parentAddress != 0 && components[parentAddress] == null) throw new IllegalArgumentException("Parent component with ID " + parentAddress + " not found!");
-        var componentID = input.readShort();
-        var position = SerializationUtil.deserializeVector3f(input);
-        var rotation = SerializationUtil.deserializeQuaternionf(input);
-        var inputs = new Input[input.readUnsignedByte()];
+        int address = input.readInt();
+        int parentAddress = input.readInt();
+        if (parentAddress != 0 && components[parentAddress] == null)
+            throw new IllegalArgumentException("Parent component with ID " + parentAddress + " not found!");
+        short componentID = input.readShort();
+        Vector3f position = SerializationUtil.deserializeVector3f(input);
+        Quaternionf rotation = SerializationUtil.deserializeQuaternionf(input);
+        Input[] inputs = new Input[input.readUnsignedByte()];
         for (int i = 0; i < inputs.length; i++) {
             inputs[i] = Input.deserialize(input);
         }
-        var outputs = new Output[input.readUnsignedByte()];
+        Output[] outputs = new Output[input.readUnsignedByte()];
         for (int i = 0; i < outputs.length; i++) {
             outputs[i] = Output.deserialize(input);
         }
-        var customData = new byte[input.readInt()];
+        byte[] customData = new byte[input.readInt()];
         input.readFully(customData);
         return new Component(address, parentAddress, componentID, position, rotation, inputs, outputs, customData);
     }
 
     public static Component fromJson(JsonNode node) throws JsonParseException {
         JsonUtil.verifyJsonObject(node, new String[]{"componentAddress", "parentAddress", "componentID", "localPosition", "localRotation", "inputs", "outputs", "customData"}, new JsonNodeType[]{JsonNodeType.NUMBER, JsonNodeType.NUMBER, JsonNodeType.NUMBER, JsonNodeType.OBJECT, JsonNodeType.OBJECT, JsonNodeType.ARRAY, JsonNodeType.ARRAY, JsonNodeType.ARRAY});
-        var componentAddress = JsonUtil.asUnsignedInteger(node.get("componentAddress"), BigInteger.valueOf(0xffffffffL));
-        var parentAddress = JsonUtil.asUnsignedInteger(node.get("parentAddress"), BigInteger.valueOf(0xffffffffL));
-        var componentID = JsonUtil.asUnsignedInteger(node.get("componentID"), BigInteger.valueOf(0xffff));
-        return new Component((int)componentAddress.longValueExact(), (int)parentAddress.longValueExact(), (short) componentID.intValueExact(),
+        BigInteger componentAddress = JsonUtil.asUnsignedInteger(node.get("componentAddress"), BigInteger.valueOf(0xffffffffL));
+        BigInteger parentAddress = JsonUtil.asUnsignedInteger(node.get("parentAddress"), BigInteger.valueOf(0xffffffffL));
+        BigInteger componentID = JsonUtil.asUnsignedInteger(node.get("componentID"), BigInteger.valueOf(0xffff));
+        return new Component((int) componentAddress.longValueExact(), (int) parentAddress.longValueExact(), (short) componentID.intValueExact(),
                 JsonUtil.parseVector(node.get("localPosition")), JsonUtil.parseQuaternion(node.get("localRotation")),
                 JsonUtil.parseArray(node.get("inputs"), 0, 0, Input[]::new, Input::fromJson),
                 JsonUtil.parseArray(node.get("outputs"), 0, 0, Output[]::new, Output::fromJson),
@@ -60,11 +126,11 @@ public record Component(int address, int parentAddress, short componentID, Vecto
         SerializationUtil.serializeVector3f(output, localPosition);
         SerializationUtil.serializeQuaternionf(output, localRotation);
         output.writeByte(inputs.length);
-        for (var Input: inputs) {
+        for (Input Input : inputs) {
             Input.serialize(output);
         }
         output.writeByte(outputs.length);
-        for (var Output: outputs) {
+        for (Output Output : outputs) {
             Output.serialize(output);
         }
         output.writeInt(customData.length);
@@ -90,7 +156,7 @@ public record Component(int address, int parentAddress, short componentID, Vecto
 
     @Override
     public JsonNode toJson() {
-        var result = new ObjectNode(JsonNodeFactory.instance);
+        ObjectNode result = new ObjectNode(JsonNodeFactory.instance);
         result.put("componentAddress", Integer.toUnsignedLong(address));
         result.put("parentAddress", Integer.toUnsignedLong(parentAddress));
         result.put("componentID", componentID);

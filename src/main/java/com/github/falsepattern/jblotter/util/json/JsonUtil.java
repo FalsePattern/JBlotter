@@ -20,7 +20,7 @@ public class JsonUtil {
     }
 
     public static <T> ArrayNode jsonifyArray(T[] array, int start, int endNonInclusive, Jsonifier<T> converter) {
-        var result = new ArrayNode(JsonNodeFactory.instance);
+        ArrayNode result = new ArrayNode(JsonNodeFactory.instance);
         for (int i = start; i < endNonInclusive; i++) {
             result.add(converter.toJson(array[i]));
         }
@@ -32,7 +32,7 @@ public class JsonUtil {
     }
 
     public static ArrayNode jsonifyByteArray(byte[] array, int start, int endNonInclusive) {
-        var result = new ArrayNode(JsonNodeFactory.instance);
+        ArrayNode result = new ArrayNode(JsonNodeFactory.instance);
         for (int i = start; i < endNonInclusive; i++) {
             result.add(Byte.toUnsignedInt(array[i]));
         }
@@ -40,7 +40,7 @@ public class JsonUtil {
     }
 
     public static ObjectNode jsonifyVector3f(Vector3f vector) {
-        var result = new ObjectNode(JsonNodeFactory.instance);
+        ObjectNode result = new ObjectNode(JsonNodeFactory.instance);
         result.put("x", vector.x);
         result.put("y", vector.y);
         result.put("z", vector.z);
@@ -48,7 +48,7 @@ public class JsonUtil {
     }
 
     public static ObjectNode jsonifyQuaternionf(Quaternionf quaternion) {
-        var result = new ObjectNode(JsonNodeFactory.instance);
+        ObjectNode result = new ObjectNode(JsonNodeFactory.instance);
         result.put("x", quaternion.x);
         result.put("y", quaternion.y);
         result.put("z", quaternion.z);
@@ -61,7 +61,7 @@ public class JsonUtil {
         if (node.size() < inputOffset) throw new JsonParseException("Json array size smaller than offset! Array size: " + node.size() + ", offset: " + inputOffset + ". Array:\n" + node.toPrettyString());
         if (node.size() == inputOffset) return arrayConstructor.apply(0);
         int readLength = node.size() - inputOffset;
-        var result = arrayConstructor.apply(outputOffset + readLength);
+        T[] result = arrayConstructor.apply(outputOffset + readLength);
         for (int i = 0; i < readLength; i++) {
             result[i + outputOffset] = parser.fromJson(node.get(i + inputOffset));
         }
@@ -70,9 +70,9 @@ public class JsonUtil {
 
     public static byte[] parseByteArray(JsonNode node) throws JsonParseException{
         if (!node.isArray()) throw new JsonParseException("Not a json array:\n" + node.toPrettyString());
-        var result = new byte[node.size()];
+        byte[] result = new byte[node.size()];
         for (int i = 0; i < result.length; i++) {
-            var n = asUnsignedInteger(node.get(i), BigInteger.valueOf(0xff));
+            BigInteger n = asUnsignedInteger(node.get(i), BigInteger.valueOf(0xff));
             result[i] = (byte)n.shortValueExact();
         }
         return result;
@@ -101,7 +101,7 @@ public class JsonUtil {
         if (!node.isObject()) throw new JsonParseException("Not a json object:\n" + node.toPrettyString());
         for (int i = 0; i < desiredFields.length; i++) {
             if (!node.has(desiredFields[i])) throw new JsonParseException("Json object is missing field \"" + desiredFields[i] + "\":\n" + node.toPrettyString());
-            var f = node.get(desiredFields[i]);
+            JsonNode f = node.get(desiredFields[i]);
             if (f.getNodeType() != desiredFieldTypes[i]) throw new JsonParseException("Json field type mismatch! Wanted: " + desiredFieldTypes[i].name() + ", got: " + f.getNodeType().name() + "! Field \"" + desiredFields[i] + "\" in:\n" + node.toPrettyString());
         }
     }
@@ -110,7 +110,7 @@ public class JsonUtil {
         if (!node.isArray()) throw new JsonParseException("Not a json array:\n" + node.toPrettyString());
         if (node.size() != desiredFieldTypes.length) throw new JsonParseException("Fixed-size json array longer than wanted size! Wanted: " + desiredFieldTypes.length + ", got: " + node.size() + "!\n" + node.toPrettyString());
         for (int i = 0; i < desiredFieldTypes.length; i++) {
-            var obj = node.get(i);
+            JsonNode obj = node.get(i);
             if (obj.getNodeType() != desiredFieldTypes[i]) throw new JsonParseException("Json field type mismatch! Wanted: " + desiredFieldTypes[i].name() + ", got: " + obj.getNodeType().name() + "! Field " + i + " in:\n" + node.toPrettyString());
         }
     }
@@ -119,7 +119,7 @@ public class JsonUtil {
         if (!node.isArray()) throw new JsonParseException("Not a json array:\n" + node.toPrettyString());
         int size = node.size();
         for (int i = 0; i < size; i++) {
-            var obj = node.get(i);
+            JsonNode obj = node.get(i);
             if (obj.getNodeType() != desiredFieldType) throw new JsonParseException("Json field type mismatch! Wanted: " + desiredFieldType.name() + ", got: " + obj.getNodeType().name() + "! Field " + i + " in:\n" + node.toPrettyString());
         }
     }
@@ -127,7 +127,7 @@ public class JsonUtil {
     public static BigInteger asUnsignedInteger(JsonNode node, BigInteger maxValue) throws JsonParseException {
         if (!node.isNumber()) throw new JsonParseException("Tried to parse json node as unsigned integer:\n" + node.toPrettyString());
         if (!node.isIntegralNumber()) throw new JsonParseException("Tried to parse decimal number as unsigned integer:\n" + node.toPrettyString());
-        var val = node.bigIntegerValue();
+        BigInteger val = node.bigIntegerValue();
         if (val.signum() == -1) throw new JsonParseException("Tried to parse negative number as unsigned value: " + val);
         if (val.compareTo(maxValue) > 0) throw new JsonParseException("Tried to parse unsigned number greater than max value! Maximum: " + maxValue + ", number: " + val);
         return val;
