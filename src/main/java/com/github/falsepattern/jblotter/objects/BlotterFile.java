@@ -30,7 +30,7 @@ import java.util.Objects;
  * Note that the {@link #components} array's first element is always null, and it's 1 element larger than the component
  * count. This is so that component addresses can be used to directly address the array without the need of lookup logic.
  */
-public final record BlotterFile(byte saveFormatVersion, GameVersion gameVersion, boolean isWorld, String[] componentIDs, Component[] components, Wire[] wires, int circuitStateCount, BitSet worldCircuitStates, int[] subassemblyCircuitStates) implements Serializable {
+public record BlotterFile(byte saveFormatVersion, GameVersion gameVersion, boolean isWorld, String[] componentIDs, Component[] components, Wire[] wires, int circuitStateCount, BitSet worldCircuitStates, int[] subassemblyCircuitStates) implements Serializable {
     private static final byte[] DESIRED_HEADER = new byte[]{0x4C, 0x6F, 0x67, 0x69, 0x63, 0x20, 0x57, 0x6F, 0x72, 0x6C, 0x64, 0x20, 0x73, 0x61, 0x76, 0x65};
     private static final byte[] DESIRED_FOOTER = new byte[]{0x72, 0x65, 0x64, 0x73, 0x74, 0x6F, 0x6E, 0x65, 0x20, 0x73, 0x75, 0x78, 0x20, 0x6C, 0x6F, 0x6C};
 
@@ -113,16 +113,17 @@ public final record BlotterFile(byte saveFormatVersion, GameVersion gameVersion,
         var components = JsonUtil.parseArray(node.get("components"), 0, 1, Component[]::new, Component::fromJson);
         var wires = JsonUtil.parseArray(node.get("wires"), 0, 0, Wire[]::new, Wire::fromJson);
         var stateArray = node.get("circuitStates");
-        JsonUtil.verifyDynamicLengthJsonArray(stateArray, JsonNodeType.BOOLEAN);
         int stateArraySize = stateArray.size();
         BitSet worldStates = null;
         int[] subassemblyStates = null;
         if (isWorld) {
+            JsonUtil.verifyDynamicLengthJsonArray(stateArray, JsonNodeType.BOOLEAN);
             worldStates = new BitSet(stateArraySize);
             for (int i = 0; i < stateArraySize; i++) {
                 worldStates.set(i, stateArray.get(i).asBoolean());
             }
         } else {
+            JsonUtil.verifyDynamicLengthJsonArray(stateArray, JsonNodeType.NUMBER);
             subassemblyStates = new int[stateArraySize];
             for (int i = 0; i < stateArraySize; i++) {
                 var num = JsonUtil.asUnsignedInteger(stateArray.get(i), BigInteger.valueOf(Integer.MAX_VALUE));
