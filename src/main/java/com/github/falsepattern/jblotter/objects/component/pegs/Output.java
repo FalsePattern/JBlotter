@@ -12,15 +12,45 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.Objects;
 
-public record Output(int circuitStateID) implements Serializable {
+public final class Output implements Serializable {
+    private final int circuitStateID;
+
+    public Output(int circuitStateID) {
+        this.circuitStateID = circuitStateID;
+    }
+
+    public int circuitStateID() {
+        return circuitStateID;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) return true;
+        if (obj == null || obj.getClass() != this.getClass()) return false;
+        Output that = (Output) obj;
+        return this.circuitStateID == that.circuitStateID;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(circuitStateID);
+    }
+
+    @Override
+    public String toString() {
+        return "Output[" +
+                "circuitStateID=" + circuitStateID + ']';
+    }
+
     public static Output deserialize(DataInput input) throws IOException {
         return new Output(input.readInt());
     }
 
     public static Output fromJson(JsonNode node) throws JsonParseException {
         JsonUtil.verifyJsonObject(node, new String[]{"circuitStateID"}, new JsonNodeType[]{JsonNodeType.NUMBER});
-        var num = JsonUtil.asUnsignedInteger(node.get("circuitStateID"), BigInteger.valueOf(Integer.MAX_VALUE));
+        BigInteger num = JsonUtil.asUnsignedInteger(node.get("circuitStateID"), BigInteger.valueOf(Integer.MAX_VALUE));
         return new Output(num.intValueExact());
     }
 
@@ -30,7 +60,7 @@ public record Output(int circuitStateID) implements Serializable {
 
     @Override
     public JsonNode toJson() {
-        var result = new ObjectNode(JsonNodeFactory.instance);
+        ObjectNode result = new ObjectNode(JsonNodeFactory.instance);
         result.put("circuitStateID", circuitStateID);
         return result;
     }

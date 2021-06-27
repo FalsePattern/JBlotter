@@ -6,11 +6,11 @@
 
     <groupId>com.github.falsepattern</groupId>
     <artifactId>jblotter</artifactId>
-    <version>0.2.1</version>
+    <version>0.2.1-java8</version>
 
     <properties>
-        <maven.compiler.source>16</maven.compiler.source>
-        <maven.compiler.target>16</maven.compiler.target>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
     </properties>
 
     <dependencies>

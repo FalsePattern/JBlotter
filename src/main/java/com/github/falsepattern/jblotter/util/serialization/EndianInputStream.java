@@ -32,7 +32,7 @@ public class EndianInputStream extends FilterInputStream implements DataInput {
 
     @Override
     public void readFully(byte[] b, int off, int len) throws IOException {
-        int bytesRead = readNBytes(b, off, len);
+        int bytesRead = read(b, off, len);
         if (bytesRead != len) throw new EOFException("Tried to read " + len + " bytes from stream, but only got " + bytesRead + " bytes before EOF!");
 
     }

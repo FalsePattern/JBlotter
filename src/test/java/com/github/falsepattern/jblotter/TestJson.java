@@ -18,9 +18,9 @@ public class TestJson {
     private void test(boolean world) {
         Assertions.assertDoesNotThrow(() -> {
             for (int i = 0; i < 256; i++) {
-                var file = RandomSaveGenerator.generateSave(world);
-                var json = file.toJson().toString();
-                var dFile = BlotterFile.fromJson(new ObjectMapper().readValue(json, ObjectNode.class));
+                BlotterFile file = RandomSaveGenerator.generateSave(world);
+                String json = file.toJson().toString();
+                BlotterFile dFile = BlotterFile.fromJson(new ObjectMapper().readValue(json, ObjectNode.class));
                 Assertions.assertEquals(file.saveFormatVersion(), dFile.saveFormatVersion());
                 Assertions.assertEquals(file.gameVersion(), dFile.gameVersion());
                 Assertions.assertEquals(file.isWorld(), dFile.isWorld());
