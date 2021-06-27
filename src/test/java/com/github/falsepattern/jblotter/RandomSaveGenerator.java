@@ -65,7 +65,7 @@ public class RandomSaveGenerator {
                 if (random.nextBoolean()) subassemblyCircuitStates.add(i);
             }
         }
-        return new BlotterFile((byte)0x05, gameVersion, world, componentIDs, components, wires, world ? BitSet.valueOf(states) : null, world ? null : subassemblyCircuitStates.stream().mapToInt(Integer::intValue).toArray());
+        return new BlotterFile((byte)0x05, gameVersion, world, componentIDs, components, wires, circuitStates, world ? BitSet.valueOf(states) : null, world ? null : subassemblyCircuitStates.stream().mapToInt(Integer::intValue).toArray());
     }
 
     private static PegAddress generatePegAddress(Component[] components, Random random) {

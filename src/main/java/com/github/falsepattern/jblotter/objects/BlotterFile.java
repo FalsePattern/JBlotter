@@ -30,7 +30,7 @@ import java.util.Objects;
  * Note that the {@link #components} array's first element is always null, and it's 1 element larger than the component
  * count. This is so that component addresses can be used to directly address the array without the need of lookup logic.
  */
-public final record BlotterFile(byte saveFormatVersion, GameVersion gameVersion, boolean isWorld, String[] componentIDs, Component[] components, Wire[] wires, BitSet worldCircuitStates, int[] subassemblyCircuitStates) implements Serializable {
+public final record BlotterFile(byte saveFormatVersion, GameVersion gameVersion, boolean isWorld, String[] componentIDs, Component[] components, Wire[] wires, int circuitStateCount, BitSet worldCircuitStates, int[] subassemblyCircuitStates) implements Serializable {
     private static final byte[] DESIRED_HEADER = new byte[]{0x4C, 0x6F, 0x67, 0x69, 0x63, 0x20, 0x57, 0x6F, 0x72, 0x6C, 0x64, 0x20, 0x73, 0x61, 0x76, 0x65};
     private static final byte[] DESIRED_FOOTER = new byte[]{0x72, 0x65, 0x64, 0x73, 0x74, 0x6F, 0x6E, 0x65, 0x20, 0x73, 0x75, 0x78, 0x20, 0x6C, 0x6F, 0x6C};
 
@@ -62,12 +62,15 @@ public final record BlotterFile(byte saveFormatVersion, GameVersion gameVersion,
         var wires = readWires(input, wireCount);
         BitSet worldCircuitStates = null;
         int[] subassemblyCircuitStates = null;
+        int circuitStateCount;
         if (isWorld) {
             var rawState = new byte[input.readInt()];
+            circuitStateCount = rawState.length * 8;
             input.readFully(rawState);
             worldCircuitStates = BitSet.valueOf(rawState);
         } else {
             subassemblyCircuitStates = new int[input.readInt()];
+            circuitStateCount = subassemblyCircuitStates.length;
             for (int i = 0; i < subassemblyCircuitStates.length; i++) {
                 subassemblyCircuitStates[i] = input.readInt();
             }
@@ -79,7 +82,7 @@ public final record BlotterFile(byte saveFormatVersion, GameVersion gameVersion,
                 throw new IllegalArgumentException("Save file footer mismatch!");
             }
         }
-        return new BlotterFile(saveFormatVersion, gameVersion, isWorld, componentIDs, components, wires, worldCircuitStates, subassemblyCircuitStates);
+        return new BlotterFile(saveFormatVersion, gameVersion, isWorld, componentIDs, components, wires, circuitStateCount, worldCircuitStates, subassemblyCircuitStates);
     }
 
     public static BlotterFile fromJson(JsonNode node) throws JsonParseException {
@@ -110,15 +113,14 @@ public final record BlotterFile(byte saveFormatVersion, GameVersion gameVersion,
         var components = JsonUtil.parseArray(node.get("components"), 0, 1, Component[]::new, Component::fromJson);
         var wires = JsonUtil.parseArray(node.get("wires"), 0, 0, Wire[]::new, Wire::fromJson);
         var stateArray = node.get("circuitStates");
-        JsonUtil.verifyDynamicLengthJsonArray(stateArray, JsonNodeType.NUMBER);
+        JsonUtil.verifyDynamicLengthJsonArray(stateArray, JsonNodeType.BOOLEAN);
         int stateArraySize = stateArray.size();
         BitSet worldStates = null;
         int[] subassemblyStates = null;
         if (isWorld) {
             worldStates = new BitSet(stateArraySize);
             for (int i = 0; i < stateArraySize; i++) {
-                var num = JsonUtil.asUnsignedInteger(stateArray.get(i), BigInteger.valueOf(0x01));
-                worldStates.set(i, num.intValueExact() != 0);
+                worldStates.set(i, stateArray.get(i).asBoolean());
             }
         } else {
             subassemblyStates = new int[stateArraySize];
@@ -127,7 +129,7 @@ public final record BlotterFile(byte saveFormatVersion, GameVersion gameVersion,
                 subassemblyStates[i] = num.intValueExact();
             }
         }
-        return new BlotterFile((byte)saveFormatVersion.intValueExact(), gameVersion, isWorld, componentIDs, components, wires, worldStates, subassemblyStates);
+        return new BlotterFile((byte)saveFormatVersion.intValueExact(), gameVersion, isWorld, componentIDs, components, wires, stateArraySize, worldStates, subassemblyStates);
 
     }
 
@@ -146,9 +148,13 @@ public final record BlotterFile(byte saveFormatVersion, GameVersion gameVersion,
             wire.serialize(output);
         }
         if (isWorld) {
+            int stateByteCount = (int)Math.ceil(circuitStateCount / 8d);
+            output.writeInt(stateByteCount);
             var states = worldCircuitStates.toByteArray();
-            output.writeInt(states.length);
             output.write(states);
+            for (int i = states.length; i < stateByteCount; i++) {
+                output.writeByte(0);
+            }
         } else {
             output.writeInt(subassemblyCircuitStates.length);
             for (int state: subassemblyCircuitStates) {
@@ -169,15 +175,14 @@ public final record BlotterFile(byte saveFormatVersion, GameVersion gameVersion,
         result.set("wires", JsonUtil.jsonifyArray(wires, Wire::toJson));
         if (isWorld) {
             var stateArray = new ArrayNode(JsonNodeFactory.instance);
-            int size = worldCircuitStates.length();
-            for (int i = 0; i < size; i++) {
-                stateArray.add(worldCircuitStates.get(i) ? 1 : 0);
+            for (int i = 0; i < circuitStateCount; i++) {
+                stateArray.add(worldCircuitStates.get(i));
             }
             result.set("circuitStates", stateArray);
         } else {
             var stateArray = new ArrayNode(JsonNodeFactory.instance);
-            for (int subassemblyCircuitState : subassemblyCircuitStates) {
-                stateArray.add(subassemblyCircuitState);
+            for (int i = 0; i < circuitStateCount; i++) {
+                stateArray.add(subassemblyCircuitStates[i]);
             }
             result.set("circuitStates", stateArray);
         }
