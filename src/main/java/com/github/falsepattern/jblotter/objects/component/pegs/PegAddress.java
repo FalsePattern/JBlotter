@@ -32,11 +32,16 @@ public record PegAddress(boolean input, int componentAddress, byte pegIndex) imp
     }
 
     @Override
-    public JsonNode toJson() {
+    public ObjectNode toJson() {
         var result = new ObjectNode(JsonNodeFactory.instance);
         result.put("input", input);
         result.put("componentAddress", Integer.toUnsignedLong(componentAddress));
         result.put("pegIndex", Byte.toUnsignedInt(pegIndex));
         return result;
+    }
+
+    @Override
+    public ObjectNode toEditableJson() {
+        return toJson();
     }
 }

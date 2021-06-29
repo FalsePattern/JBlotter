@@ -8,4 +8,5 @@ import java.io.IOException;
 public interface Serializable {
     void serialize(DataOutput output) throws IOException;
     JsonNode toJson();
+    JsonNode toEditableJson();
 }

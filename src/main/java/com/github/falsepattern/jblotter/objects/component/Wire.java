@@ -33,11 +33,17 @@ public record Wire(PegAddress firstPoint, PegAddress secondPoint, int circuitSta
     }
 
     @Override
-    public JsonNode toJson() {
+    public ObjectNode toJson() {
+        var result = toEditableJson();
+        result.put("circuitStateID", circuitStateID);
+        return result;
+    }
+
+    @Override
+    public ObjectNode toEditableJson() {
         var result = new ObjectNode(JsonNodeFactory.instance);
         result.set("firstPoint", firstPoint.toJson());
         result.set("secondPoint", secondPoint.toJson());
-        result.put("circuitStateID", circuitStateID);
         result.put("rotation", rotation);
         return result;
     }

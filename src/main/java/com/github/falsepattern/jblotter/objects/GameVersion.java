@@ -11,6 +11,7 @@ import com.github.falsepattern.jblotter.util.json.JsonUtil;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.math.BigInteger;
 
 public record GameVersion(int majorVersion, int minorVersion, int patchVersion, int buildVersion) implements Serializable {
@@ -42,6 +43,11 @@ public record GameVersion(int majorVersion, int minorVersion, int patchVersion, 
         result.add(Integer.toUnsignedLong(patchVersion));
         result.add(Integer.toUnsignedLong(buildVersion));
         return result;
+    }
+
+    @Override
+    public ArrayNode toEditableJson() {
+        return toJson();
     }
 
     public int[] asArray() {

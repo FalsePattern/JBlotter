@@ -12,6 +12,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.BitSet;
 
 public record Output(int circuitStateID) implements Serializable {
     public static Output deserialize(DataInput input) throws IOException {
@@ -29,9 +30,19 @@ public record Output(int circuitStateID) implements Serializable {
     }
 
     @Override
-    public JsonNode toJson() {
+    public ObjectNode toJson() {
         var result = new ObjectNode(JsonNodeFactory.instance);
         result.put("circuitStateID", circuitStateID);
         return result;
+    }
+
+    public ObjectNode toEditableJson(BitSet circuitStates) {
+        var result = new ObjectNode(JsonNodeFactory.instance);
+        result.put("powered", circuitStates.get(circuitStateID));
+        return result;
+    }
+
+    public JsonNode toEditableJson() {
+        throw new UnsupportedOperationException("Use toEditableJson(BitSet) for serializing outputs! They require context about circuit states!");
     }
 }

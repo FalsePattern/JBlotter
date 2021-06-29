@@ -30,9 +30,15 @@ public record Input(boolean exclusive, int circuitStateID) implements Serializab
     }
 
     @Override
-    public JsonNode toJson() {
-        var result = new ObjectNode(JsonNodeFactory.instance);
+    public ObjectNode toJson() {
+        var result = toEditableJson();
         result.put("circuitStateID", circuitStateID);
+        return result;
+    }
+
+    @Override
+    public ObjectNode toEditableJson() {
+        var result = new ObjectNode(JsonNodeFactory.instance);
         result.put("exclusive", exclusive);
         return result;
     }

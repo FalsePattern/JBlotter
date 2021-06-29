@@ -9,6 +9,7 @@ import com.github.falsepattern.jblotter.objects.component.pegs.Input;
 import com.github.falsepattern.jblotter.objects.component.pegs.Output;
 import com.github.falsepattern.jblotter.util.json.JsonParseException;
 import com.github.falsepattern.jblotter.util.json.JsonUtil;
+import com.github.falsepattern.jblotter.util.json.Jsonifier;
 import com.github.falsepattern.jblotter.util.serialization.SerializationUtil;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -18,7 +19,9 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Objects;
+import java.util.function.Function;
 
 public record Component(int address, int parentAddress, short componentID, Vector3f localPosition, Quaternionf localRotation, Input[] inputs, Output[] outputs, byte[] customData) implements Serializable {
     public static Component deserialize(DataInput input, Component[] components) throws IOException {
@@ -88,17 +91,34 @@ public record Component(int address, int parentAddress, short componentID, Vecto
         return result;
     }
 
-    @Override
-    public JsonNode toJson() {
+    private ObjectNode toJson(String name, Jsonifier<Input> inputMethod, Jsonifier<Output> outputMethod) {
         var result = new ObjectNode(JsonNodeFactory.instance);
         result.put("componentAddress", Integer.toUnsignedLong(address));
         result.put("parentAddress", Integer.toUnsignedLong(parentAddress));
-        result.put("componentID", componentID);
+        if (name != null) {
+            result.put("componentID", name);
+        } else {
+            result.put("componentID", componentID);
+        }
         result.set("localPosition", JsonUtil.jsonifyVector3f(localPosition));
         result.set("localRotation", JsonUtil.jsonifyQuaternionf(localRotation));
-        result.set("inputs", JsonUtil.jsonifyArray(inputs, Input::toJson));
-        result.set("outputs", JsonUtil.jsonifyArray(outputs, Output::toJson));
+        result.set("inputs", JsonUtil.jsonifyArray(inputs, inputMethod));
+        result.set("outputs", JsonUtil.jsonifyArray(outputs, outputMethod));
         result.set("customData", JsonUtil.jsonifyByteArray(customData));
         return result;
+    }
+
+    @Override
+    public ObjectNode toJson() {
+        return toJson(null, Serializable::toJson, Serializable::toJson);
+    }
+
+    public ObjectNode toEditableJson(BitSet circuitStates, String[] ids) {
+        return toJson(ids[componentID], Serializable::toJson, (output) -> output.toEditableJson(circuitStates));
+    }
+
+    @Override
+    public ObjectNode toEditableJson() {
+        throw new UnsupportedOperationException("Use toEditableJson(BitSet, String[]) for serializing components! They require context about circuit states and component IDs!");
     }
 }

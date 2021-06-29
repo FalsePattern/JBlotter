@@ -165,12 +165,17 @@ public record BlotterFile(byte saveFormatVersion, GameVersion gameVersion, boole
         output.write(DESIRED_FOOTER);
     }
 
-    @Override
-    public ObjectNode toJson() {
+    private ObjectNode toJsonPrelude() {
         var result = new ObjectNode(JsonNodeFactory.instance);
         result.put("saveFormatVersion", saveFormatVersion);
         result.set("gameVersion", gameVersion.toJson());
         result.put("saveType", isWorld ? 1 : 2);
+        return result;
+    }
+
+    @Override
+    public ObjectNode toJson() {
+        var result = toJsonPrelude();
         result.set("componentIDs", JsonUtil.jsonifyArray(componentIDs, TextNode::new));
         result.set("components", JsonUtil.jsonifyArray(components, 1, components.length, Component::toJson));
         result.set("wires", JsonUtil.jsonifyArray(wires, Wire::toJson));
@@ -187,6 +192,25 @@ public record BlotterFile(byte saveFormatVersion, GameVersion gameVersion, boole
             }
             result.set("circuitStates", stateArray);
         }
+        result.put("editFriendly", false);
+        return result;
+    }
+
+    @Override
+    public ObjectNode toEditableJson() {
+        var result = toJsonPrelude();
+        BitSet circuitStates;
+        if (isWorld) {
+            circuitStates = worldCircuitStates;
+        } else {
+            circuitStates = new BitSet();
+            for (int subassemblyCircuitState : subassemblyCircuitStates) {
+                circuitStates.set(subassemblyCircuitState);
+            }
+        }
+        result.set("components", JsonUtil.jsonifyArray(components, 1, components.length, (component) -> component.toEditableJson(circuitStates, componentIDs)));
+        result.set("wires", JsonUtil.jsonifyArray(wires, Wire::toEditableJson));
+        result.put("editFriendly", true);
         return result;
     }
 
