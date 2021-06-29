@@ -149,6 +149,22 @@ public class SignalGraphSolver {
         }
     }
 
+    private boolean propagateState() {
+        for (var entry: addressMap.entrySet()) {
+            var addr = entry.getKey();
+            var node = entry.getValue();
+            var csid = node.get("circuitStateID").intValue();
+            if (idStates.getOrDefault(csid, false)) continue;
+            for (var wire: wires.get(addr).values()) {
+                if (idStates.getOrDefault(wire.get("circuitStateID").intValue(), false)) {
+                    idStates.put(csid, true);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public void solve(ObjectNode blotterFile, boolean world) throws JsonParseException {
         var scheduledNodes = new ArrayList<ObjectNode>();
         var nodesToProcess = new ArrayList<>(addressMap.values());
@@ -178,5 +194,8 @@ public class SignalGraphSolver {
             }
             blotterFile.set("circuitStates", arr);
         }
+
+        //noinspection StatementWithEmptyBody
+        while (propagateState()){}
     }
 }

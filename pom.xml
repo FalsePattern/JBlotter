@@ -6,7 +6,7 @@
 
     <groupId>com.github.falsepattern</groupId>
     <artifactId>jblotter</artifactId>
-    <version>0.3.0</version>
+    <version>0.3.1</version>
 
     <properties>
         <maven.compiler.source>16</maven.compiler.source>
