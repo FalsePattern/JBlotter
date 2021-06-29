@@ -152,10 +152,12 @@ public class SignalGraphSolver {
     private boolean propagateState() {
         for (var entry: addressMap.entrySet()) {
             var addr = entry.getKey();
+            if (!addr.input()) continue;
             var node = entry.getValue();
             var csid = node.get("circuitStateID").intValue();
             if (idStates.getOrDefault(csid, false)) continue;
             for (var wire: wires.get(addr).values()) {
+
                 if (idStates.getOrDefault(wire.get("circuitStateID").intValue(), false)) {
                     idStates.put(csid, true);
                     return true;
