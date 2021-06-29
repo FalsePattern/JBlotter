@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.falsepattern.jblotter.util.Serializable;
+import com.github.falsepattern.jblotter.util.json.rule.DynamicArrayRule;
+import com.github.falsepattern.jblotter.util.json.rule.ObjectRule;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -56,8 +58,7 @@ public class JsonUtil {
         return result;
     }
 
-    public static <T> T[] parseArray(JsonNode node, int inputOffset, int outputOffset, Function<Integer, T[]> arrayConstructor, JsonParser<T> parser) throws JsonParseException {
-        if (!node.isArray()) throw new JsonParseException("Not a json array:\n" + node.toPrettyString());
+    public static <T> T[] parseArrayNoVerify(JsonNode node, int inputOffset, int outputOffset, Function<Integer, T[]> arrayConstructor, JsonParser<T> parser) throws JsonParseException {
         if (node.size() < inputOffset) throw new JsonParseException("Json array size smaller than offset! Array size: " + node.size() + ", offset: " + inputOffset + ". Array:\n" + node.toPrettyString());
         if (node.size() == inputOffset) return arrayConstructor.apply(0);
         int readLength = node.size() - inputOffset;
@@ -68,18 +69,17 @@ public class JsonUtil {
         return result;
     }
 
-    public static byte[] parseByteArray(JsonNode node) throws JsonParseException{
-        if (!node.isArray()) throw new JsonParseException("Not a json array:\n" + node.toPrettyString());
+    public static byte[] parseByteArray(JsonNode node, boolean verified) throws JsonParseException{
+        if (!verified) DynamicArrayRule.BYTE_ARRAY.verify(node);
         var result = new byte[node.size()];
         for (int i = 0; i < result.length; i++) {
-            var n = asUnsignedInteger(node.get(i), BigInteger.valueOf(0xff));
-            result[i] = (byte)n.shortValueExact();
+            result[i] = (byte)node.get(i).intValue();
         }
         return result;
     }
 
-    public static Vector3f parseVector(JsonNode node) throws JsonParseException {
-        verifyJsonObject(node, new String[]{"x", "y", "z"}, new JsonNodeType[]{JsonNodeType.NUMBER, JsonNodeType.NUMBER, JsonNodeType.NUMBER});
+    public static Vector3f parseVector(JsonNode node, boolean verified) throws JsonParseException {
+        if (!verified) ObjectRule.RULE_VEC3.verify(node);
         return new Vector3f(
                 node.get("x").floatValue(),
                 node.get("y").floatValue(),
@@ -87,49 +87,13 @@ public class JsonUtil {
         );
     }
 
-    public static Quaternionf parseQuaternion(JsonNode node) throws JsonParseException {
-        verifyJsonObject(node, new String[]{"x", "y", "z", "w"}, new JsonNodeType[]{JsonNodeType.NUMBER, JsonNodeType.NUMBER, JsonNodeType.NUMBER, JsonNodeType.NUMBER});
+    public static Quaternionf parseQuaternion(JsonNode node, boolean verified) throws JsonParseException {
+        if (!verified) ObjectRule.RULE_VEC3.verify(node);
         return new Quaternionf(
                 node.get("x").floatValue(),
                 node.get("y").floatValue(),
                 node.get("z").floatValue(),
                 node.get("w").floatValue()
         );
-    }
-
-    public static void verifyJsonObject(JsonNode node, String[] desiredFields, JsonNodeType[] desiredFieldTypes) throws JsonParseException {
-        if (!node.isObject()) throw new JsonParseException("Not a json object:\n" + node.toPrettyString());
-        for (int i = 0; i < desiredFields.length; i++) {
-            if (!node.has(desiredFields[i])) throw new JsonParseException("Json object is missing field \"" + desiredFields[i] + "\":\n" + node.toPrettyString());
-            var f = node.get(desiredFields[i]);
-            if (f.getNodeType() != desiredFieldTypes[i]) throw new JsonParseException("Json field type mismatch! Wanted: " + desiredFieldTypes[i].name() + ", got: " + f.getNodeType().name() + "! Field \"" + desiredFields[i] + "\" in:\n" + node.toPrettyString());
-        }
-    }
-
-    public static void verifyFixedLengthJsonArray(JsonNode node, JsonNodeType[] desiredFieldTypes) throws JsonParseException {
-        if (!node.isArray()) throw new JsonParseException("Not a json array:\n" + node.toPrettyString());
-        if (node.size() != desiredFieldTypes.length) throw new JsonParseException("Fixed-size json array longer than wanted size! Wanted: " + desiredFieldTypes.length + ", got: " + node.size() + "!\n" + node.toPrettyString());
-        for (int i = 0; i < desiredFieldTypes.length; i++) {
-            var obj = node.get(i);
-            if (obj.getNodeType() != desiredFieldTypes[i]) throw new JsonParseException("Json field type mismatch! Wanted: " + desiredFieldTypes[i].name() + ", got: " + obj.getNodeType().name() + "! Field " + i + " in:\n" + node.toPrettyString());
-        }
-    }
-
-    public static void verifyDynamicLengthJsonArray(JsonNode node, JsonNodeType desiredFieldType) throws JsonParseException {
-        if (!node.isArray()) throw new JsonParseException("Not a json array:\n" + node.toPrettyString());
-        int size = node.size();
-        for (int i = 0; i < size; i++) {
-            var obj = node.get(i);
-            if (obj.getNodeType() != desiredFieldType) throw new JsonParseException("Json field type mismatch! Wanted: " + desiredFieldType.name() + ", got: " + obj.getNodeType().name() + "! Field " + i + " in:\n" + node.toPrettyString());
-        }
-    }
-
-    public static BigInteger asUnsignedInteger(JsonNode node, BigInteger maxValue) throws JsonParseException {
-        if (!node.isNumber()) throw new JsonParseException("Tried to parse json node as unsigned integer:\n" + node.toPrettyString());
-        if (!node.isIntegralNumber()) throw new JsonParseException("Tried to parse decimal number as unsigned integer:\n" + node.toPrettyString());
-        var val = node.bigIntegerValue();
-        if (val.signum() == -1) throw new JsonParseException("Tried to parse negative number as unsigned value: " + val);
-        if (val.compareTo(maxValue) > 0) throw new JsonParseException("Tried to parse unsigned number greater than max value! Maximum: " + maxValue + ", number: " + val);
-        return val;
     }
 }

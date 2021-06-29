@@ -7,6 +7,10 @@ import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.github.falsepattern.jblotter.util.Serializable;
 import com.github.falsepattern.jblotter.util.json.JsonParseException;
 import com.github.falsepattern.jblotter.util.json.JsonUtil;
+import com.github.falsepattern.jblotter.util.json.rule.NodeRule;
+import com.github.falsepattern.jblotter.util.json.rule.StaticArrayRule;
+import com.github.falsepattern.jblotter.util.json.rule.primitives.IntegerRule;
+import org.w3c.dom.Node;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -15,18 +19,15 @@ import java.lang.reflect.Array;
 import java.math.BigInteger;
 
 public record GameVersion(int majorVersion, int minorVersion, int patchVersion, int buildVersion) implements Serializable {
+    public static final NodeRule RULE = new StaticArrayRule(4, IntegerRule.POSITIVE_SIGNED_INT, IntegerRule.POSITIVE_SIGNED_INT, IntegerRule.POSITIVE_SIGNED_INT, IntegerRule.POSITIVE_SIGNED_INT);
 
     public static GameVersion deserialize(DataInput input) throws IOException {
         return new GameVersion(input.readInt(), input.readInt(), input.readInt(), input.readInt());
     }
 
-    public static GameVersion fromJson(JsonNode node) throws JsonParseException {
-        JsonUtil.verifyFixedLengthJsonArray(node, new JsonNodeType[]{JsonNodeType.NUMBER, JsonNodeType.NUMBER, JsonNodeType.NUMBER, JsonNodeType.NUMBER});
-        var major = JsonUtil.asUnsignedInteger(node.get(0), BigInteger.valueOf(Integer.MAX_VALUE));
-        var minor = JsonUtil.asUnsignedInteger(node.get(1), BigInteger.valueOf(Integer.MAX_VALUE));
-        var patch = JsonUtil.asUnsignedInteger(node.get(2), BigInteger.valueOf(Integer.MAX_VALUE));
-        var build = JsonUtil.asUnsignedInteger(node.get(3), BigInteger.valueOf(Integer.MAX_VALUE));
-        return new GameVersion(major.intValueExact(), minor.intValueExact(), patch.intValueExact(), build.intValueExact());
+    public static GameVersion fromJson(JsonNode node, boolean verified) throws JsonParseException {
+        if (!verified) RULE.verify(node);
+        return new GameVersion(node.get(0).intValue(), node.get(1).intValue(), node.get(2).intValue(), node.get(3).intValue());
     }
 
     public void serialize(DataOutput output) throws IOException {

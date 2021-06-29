@@ -2,17 +2,21 @@ package com.github.falsepattern.jblotter.objects;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
-import com.fasterxml.jackson.databind.node.ValueNode;
 import com.github.falsepattern.jblotter.util.Serializable;
 import com.github.falsepattern.jblotter.objects.component.Component;
 import com.github.falsepattern.jblotter.objects.component.Wire;
+import com.github.falsepattern.jblotter.util.SignalGraphSolver;
 import com.github.falsepattern.jblotter.util.json.JsonParseException;
 import com.github.falsepattern.jblotter.util.json.JsonUtil;
+import com.github.falsepattern.jblotter.util.json.rule.DynamicArrayRule;
+import com.github.falsepattern.jblotter.util.json.rule.NodeRule;
+import com.github.falsepattern.jblotter.util.json.rule.ObjectRule;
+import com.github.falsepattern.jblotter.util.json.rule.primitives.BooleanRule;
+import com.github.falsepattern.jblotter.util.json.rule.primitives.IntegerRule;
+import com.github.falsepattern.jblotter.util.json.rule.primitives.TextRule;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -20,6 +24,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -33,6 +38,11 @@ import java.util.Objects;
 public record BlotterFile(byte saveFormatVersion, GameVersion gameVersion, boolean isWorld, String[] componentIDs, Component[] components, Wire[] wires, int circuitStateCount, BitSet worldCircuitStates, int[] subassemblyCircuitStates) implements Serializable {
     private static final byte[] DESIRED_HEADER = new byte[]{0x4C, 0x6F, 0x67, 0x69, 0x63, 0x20, 0x57, 0x6F, 0x72, 0x6C, 0x64, 0x20, 0x73, 0x61, 0x76, 0x65};
     private static final byte[] DESIRED_FOOTER = new byte[]{0x72, 0x65, 0x64, 0x73, 0x74, 0x6F, 0x6E, 0x65, 0x20, 0x73, 0x75, 0x78, 0x20, 0x6C, 0x6F, 0x6C};
+    private static final ObjectRule COMMON_RULE = new ObjectRule(new String[]{"saveFormatVersion", "gameVersion", "saveType"}, new NodeRule[]{IntegerRule.UNSIGNED_BYTE, GameVersion.RULE, IntegerRule.UNSIGNED_BYTE}, false);
+    public static final NodeRule RULE_BASE = ObjectRule.join(COMMON_RULE, new ObjectRule(new String[]{"componentIDs", "components", "wires"}, new NodeRule[]{new DynamicArrayRule(TextRule.INSTANCE), new DynamicArrayRule(Component.RULE), new DynamicArrayRule(Wire.RULE)}, false), false);
+    public static final NodeRule RULE_WORLD = new ObjectRule(new String[]{"circuitStates"}, new NodeRule[]{new DynamicArrayRule(BooleanRule.INSTANCE)}, false);
+    public static final NodeRule RULE_SUBASSEMBLY = new ObjectRule(new String[]{"circuitStates"}, new NodeRule[]{new DynamicArrayRule(IntegerRule.POSITIVE_SIGNED_INT)}, false);
+    public static final NodeRule EDITABLE_RULE = ObjectRule.join(COMMON_RULE, new ObjectRule(new String[]{"components", "wires", "editFriendly"}, new NodeRule[]{new DynamicArrayRule(Component.EDITABLE_RULE), new DynamicArrayRule(Wire.EDITABLE_RULE), BooleanRule.INSTANCE}, false), true);
 
     public Component getComponentByID(int id) {
         return components[id];
@@ -85,52 +95,77 @@ public record BlotterFile(byte saveFormatVersion, GameVersion gameVersion, boole
         return new BlotterFile(saveFormatVersion, gameVersion, isWorld, componentIDs, components, wires, circuitStateCount, worldCircuitStates, subassemblyCircuitStates);
     }
 
-    public static BlotterFile fromJson(JsonNode node) throws JsonParseException {
-        JsonParseException verificationException = null;
-        try {
-            JsonUtil.verifyJsonObject(node, new String[]{"saveFormatVersion", "gameVersion", "saveType", "componentIDs", "components", "wires", "circuitStates"}, new JsonNodeType[]{JsonNodeType.NUMBER, JsonNodeType.ARRAY, JsonNodeType.NUMBER, JsonNodeType.ARRAY, JsonNodeType.ARRAY, JsonNodeType.ARRAY, JsonNodeType.ARRAY});
-        } catch (JsonParseException e) {
-            verificationException = e;
-        }
-        var saveFormatVersion = JsonUtil.asUnsignedInteger(node.get("saveFormatVersion"), BigInteger.valueOf(0xff));
-        if (saveFormatVersion.intValueExact() != 0x05) {
-            if (verificationException == null) {
-                throw new JsonParseException("Unsupported save format version " + saveFormatVersion.intValueExact());
-            } else {
-                throw new JsonParseException("Unsupported save format version " + saveFormatVersion.intValueExact(), verificationException);
-            }
-        } else if (verificationException != null) throw verificationException;
-        var gameVersion = GameVersion.fromJson(node.get("gameVersion"));
-        var isWorld = switch (JsonUtil.asUnsignedInteger(node.get("saveType"), BigInteger.valueOf(0x02)).intValueExact()) {
+    private static BlotterFile fromStandardJson(JsonNode node) throws JsonParseException {
+        var saveFormatVersion = (byte)node.get("saveFormatVersion").intValue();
+        var gameVersion = GameVersion.fromJson(node.get("gameVersion"), true);
+        var isWorld = switch (node.get("saveType").intValue()) {
             default -> throw new JsonParseException("Unknown/corrupted save type!");
             case 0x01 -> true;
             case 0x02 -> false;
         };
-        var componentIDs = JsonUtil.parseArray(node.get("componentIDs"), 0, 0, String[]::new, (node1) -> {
-            if (!node1.isTextual()) throw new JsonParseException("Could not parse node as text:\n" + node1.toPrettyString());
-            return node1.textValue();
-        });
-        var components = JsonUtil.parseArray(node.get("components"), 0, 1, Component[]::new, Component::fromJson);
-        var wires = JsonUtil.parseArray(node.get("wires"), 0, 0, Wire[]::new, Wire::fromJson);
+        var componentIDs = JsonUtil.parseArrayNoVerify(node.get("componentIDs"), 0, 0, String[]::new, JsonNode::textValue);
+        var components = JsonUtil.parseArrayNoVerify(node.get("components"), 0, 1, Component[]::new, (component) -> Component.fromJson(component, true));
+        var wires = JsonUtil.parseArrayNoVerify(node.get("wires"), 0, 0, Wire[]::new, (wire) -> Wire.fromJson(wire, true));
         var stateArray = node.get("circuitStates");
         int stateArraySize = stateArray.size();
         BitSet worldStates = null;
         int[] subassemblyStates = null;
         if (isWorld) {
-            JsonUtil.verifyDynamicLengthJsonArray(stateArray, JsonNodeType.BOOLEAN);
+            RULE_WORLD.verify(node);
             worldStates = new BitSet(stateArraySize);
             for (int i = 0; i < stateArraySize; i++) {
                 worldStates.set(i, stateArray.get(i).asBoolean());
             }
         } else {
-            JsonUtil.verifyDynamicLengthJsonArray(stateArray, JsonNodeType.NUMBER);
+            RULE_SUBASSEMBLY.verify(node);
             subassemblyStates = new int[stateArraySize];
             for (int i = 0; i < stateArraySize; i++) {
-                var num = JsonUtil.asUnsignedInteger(stateArray.get(i), BigInteger.valueOf(Integer.MAX_VALUE));
-                subassemblyStates[i] = num.intValueExact();
+                subassemblyStates[i] = stateArray.get(i).intValue();
             }
         }
-        return new BlotterFile((byte)saveFormatVersion.intValueExact(), gameVersion, isWorld, componentIDs, components, wires, stateArraySize, worldStates, subassemblyStates);
+        return new BlotterFile(saveFormatVersion, gameVersion, isWorld, componentIDs, components, wires, stateArraySize, worldStates, subassemblyStates);
+    }
+
+    public static BlotterFile fromJson(JsonNode node) throws JsonParseException {
+        COMMON_RULE.verify(node);
+        var saveFormatVersion = node.get("saveFormatVersion").intValue();
+        if (saveFormatVersion != 0x05) {
+            throw new JsonParseException("Unsupported save format version " + saveFormatVersion);
+        }
+        var isWorld = switch (node.get("saveType").intValue()) {
+            default -> throw new JsonParseException("Unknown/corrupted save type!");
+            case 0x01 -> true;
+            case 0x02 -> false;
+        };
+        boolean editFriendly = false;
+        if (node.has("editFriendly")) {
+            var nef = node.get("editFriendly");
+            BooleanRule.INSTANCE.verify(nef);
+            editFriendly = nef.asBoolean();
+        }
+        if (editFriendly) {
+            EDITABLE_RULE.verify(node);
+            node = node.deepCopy();
+            var solver = new SignalGraphSolver();
+            solver.addComponents((ArrayNode) node.get("components"));
+            solver.addWires((ArrayNode) node.get("wires"));
+            solver.solve((ObjectNode) node, isWorld);
+            var componentIDs = new ArrayList<String>();
+            for (var component: node.get("components")) {
+                var name = component.get("componentID").textValue();
+                if (!componentIDs.contains(name)) {
+                    componentIDs.add(name);
+                }
+                ((ObjectNode)component).put("componentID", componentIDs.indexOf(name));
+            }
+            var compIdArr = new ArrayNode(JsonNodeFactory.instance);
+            for (var id: componentIDs) {
+                compIdArr.add(id);
+            }
+            ((ObjectNode) node).set("componentIDs", compIdArr);
+        }
+        RULE_BASE.verify(node);
+        return fromStandardJson(node);
 
     }
 

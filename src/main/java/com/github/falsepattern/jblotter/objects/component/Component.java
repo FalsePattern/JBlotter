@@ -2,7 +2,6 @@ package com.github.falsepattern.jblotter.objects.component;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.falsepattern.jblotter.util.Serializable;
 import com.github.falsepattern.jblotter.objects.component.pegs.Input;
@@ -10,6 +9,11 @@ import com.github.falsepattern.jblotter.objects.component.pegs.Output;
 import com.github.falsepattern.jblotter.util.json.JsonParseException;
 import com.github.falsepattern.jblotter.util.json.JsonUtil;
 import com.github.falsepattern.jblotter.util.json.Jsonifier;
+import com.github.falsepattern.jblotter.util.json.rule.DynamicArrayRule;
+import com.github.falsepattern.jblotter.util.json.rule.NodeRule;
+import com.github.falsepattern.jblotter.util.json.rule.ObjectRule;
+import com.github.falsepattern.jblotter.util.json.rule.primitives.IntegerRule;
+import com.github.falsepattern.jblotter.util.json.rule.primitives.TextRule;
 import com.github.falsepattern.jblotter.util.serialization.SerializationUtil;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -17,13 +21,15 @@ import org.joml.Vector3f;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Objects;
-import java.util.function.Function;
 
 public record Component(int address, int parentAddress, short componentID, Vector3f localPosition, Quaternionf localRotation, Input[] inputs, Output[] outputs, byte[] customData) implements Serializable {
+    public static final NodeRule RULE = new ObjectRule(new String[]{"componentAddress", "parentAddress", "componentID", "localPosition", "localRotation", "inputs", "outputs", "customData"},
+            new NodeRule[]{IntegerRule.UNSIGNED_INT, IntegerRule.UNSIGNED_INT, IntegerRule.UNSIGNED_SHORT, ObjectRule.RULE_VEC3, ObjectRule.RULE_QUATERNION, new DynamicArrayRule(Input.RULE), new DynamicArrayRule(Output.RULE), new DynamicArrayRule(IntegerRule.UNSIGNED_BYTE)}, true);
+    public static final NodeRule EDITABLE_RULE = new ObjectRule(new String[]{"componentAddress", "parentAddress", "componentID", "localPosition", "localRotation", "inputs", "outputs", "customData"},
+            new NodeRule[]{IntegerRule.UNSIGNED_INT, IntegerRule.UNSIGNED_INT, TextRule.INSTANCE, ObjectRule.RULE_VEC3, ObjectRule.RULE_QUATERNION, new DynamicArrayRule(Input.EDITABLE_RULE), new DynamicArrayRule(Output.EDITABLE_RULE), new DynamicArrayRule(IntegerRule.UNSIGNED_BYTE)}, true);
     public static Component deserialize(DataInput input, Component[] components) throws IOException {
         var address = input.readInt();
         var parentAddress = input.readInt();
@@ -44,16 +50,13 @@ public record Component(int address, int parentAddress, short componentID, Vecto
         return new Component(address, parentAddress, componentID, position, rotation, inputs, outputs, customData);
     }
 
-    public static Component fromJson(JsonNode node) throws JsonParseException {
-        JsonUtil.verifyJsonObject(node, new String[]{"componentAddress", "parentAddress", "componentID", "localPosition", "localRotation", "inputs", "outputs", "customData"}, new JsonNodeType[]{JsonNodeType.NUMBER, JsonNodeType.NUMBER, JsonNodeType.NUMBER, JsonNodeType.OBJECT, JsonNodeType.OBJECT, JsonNodeType.ARRAY, JsonNodeType.ARRAY, JsonNodeType.ARRAY});
-        var componentAddress = JsonUtil.asUnsignedInteger(node.get("componentAddress"), BigInteger.valueOf(0xffffffffL));
-        var parentAddress = JsonUtil.asUnsignedInteger(node.get("parentAddress"), BigInteger.valueOf(0xffffffffL));
-        var componentID = JsonUtil.asUnsignedInteger(node.get("componentID"), BigInteger.valueOf(0xffff));
-        return new Component((int)componentAddress.longValueExact(), (int)parentAddress.longValueExact(), (short) componentID.intValueExact(),
-                JsonUtil.parseVector(node.get("localPosition")), JsonUtil.parseQuaternion(node.get("localRotation")),
-                JsonUtil.parseArray(node.get("inputs"), 0, 0, Input[]::new, Input::fromJson),
-                JsonUtil.parseArray(node.get("outputs"), 0, 0, Output[]::new, Output::fromJson),
-                JsonUtil.parseByteArray(node.get("customData")));
+    public static Component fromJson(JsonNode node, boolean verified) throws JsonParseException {
+        if (!verified) RULE.verify(node);
+        return new Component((int)node.get("componentAddress").longValue(), (int)node.get("parentAddress").longValue(), (short) node.get("componentID").intValue(),
+                JsonUtil.parseVector(node.get("localPosition"), true), JsonUtil.parseQuaternion(node.get("localRotation"), true),
+                JsonUtil.parseArrayNoVerify(node.get("inputs"), 0, 0, Input[]::new, (input) -> Input.fromJson(input, true)),
+                JsonUtil.parseArrayNoVerify(node.get("outputs"), 0, 0, Output[]::new, (output) -> Output.fromJson(output, true)),
+                JsonUtil.parseByteArray(node.get("customData"), true));
     }
 
     public void serialize(DataOutput output) throws IOException {
@@ -114,7 +117,7 @@ public record Component(int address, int parentAddress, short componentID, Vecto
     }
 
     public ObjectNode toEditableJson(BitSet circuitStates, String[] ids) {
-        return toJson(ids[componentID], Serializable::toJson, (output) -> output.toEditableJson(circuitStates));
+        return toJson(ids[componentID], Input::toEditableJson, (output) -> output.toEditableJson(circuitStates));
     }
 
     @Override

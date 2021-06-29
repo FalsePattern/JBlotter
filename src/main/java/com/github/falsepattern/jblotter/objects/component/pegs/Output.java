@@ -7,6 +7,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.falsepattern.jblotter.util.Serializable;
 import com.github.falsepattern.jblotter.util.json.JsonParseException;
 import com.github.falsepattern.jblotter.util.json.JsonUtil;
+import com.github.falsepattern.jblotter.util.json.rule.NodeRule;
+import com.github.falsepattern.jblotter.util.json.rule.ObjectRule;
+import com.github.falsepattern.jblotter.util.json.rule.primitives.BooleanRule;
+import com.github.falsepattern.jblotter.util.json.rule.primitives.IntegerRule;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -15,14 +19,15 @@ import java.math.BigInteger;
 import java.util.BitSet;
 
 public record Output(int circuitStateID) implements Serializable {
+    public static final NodeRule RULE = new ObjectRule(new String[]{"circuitStateID"}, new NodeRule[]{IntegerRule.POSITIVE_SIGNED_INT}, true);
+    public static final NodeRule EDITABLE_RULE = new ObjectRule(new String[]{"powered"}, new NodeRule[]{BooleanRule.INSTANCE}, true);
     public static Output deserialize(DataInput input) throws IOException {
         return new Output(input.readInt());
     }
 
-    public static Output fromJson(JsonNode node) throws JsonParseException {
-        JsonUtil.verifyJsonObject(node, new String[]{"circuitStateID"}, new JsonNodeType[]{JsonNodeType.NUMBER});
-        var num = JsonUtil.asUnsignedInteger(node.get("circuitStateID"), BigInteger.valueOf(Integer.MAX_VALUE));
-        return new Output(num.intValueExact());
+    public static Output fromJson(JsonNode node, boolean verified) throws JsonParseException {
+        if (!verified) RULE.verify(node);
+        return new Output(node.get("circuitStateID").intValue());
     }
 
     public void serialize(DataOutput output) throws IOException {
