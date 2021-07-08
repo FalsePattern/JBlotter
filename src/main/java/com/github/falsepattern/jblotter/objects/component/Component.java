@@ -23,6 +23,8 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 public record Component(int address, int parentAddress, short componentID, Vector3f localPosition, Quaternionf localRotation, Input[] inputs, Output[] outputs, byte[] customData) implements Serializable {
@@ -30,23 +32,29 @@ public record Component(int address, int parentAddress, short componentID, Vecto
             new NodeRule[]{IntegerRule.UNSIGNED_INT, IntegerRule.UNSIGNED_INT, IntegerRule.UNSIGNED_SHORT, ObjectRule.RULE_VEC3, ObjectRule.RULE_QUATERNION, new DynamicArrayRule(Input.RULE), new DynamicArrayRule(Output.RULE), new DynamicArrayRule(IntegerRule.UNSIGNED_BYTE)}, true);
     public static final NodeRule EDITABLE_RULE = new ObjectRule(new String[]{"componentAddress", "parentAddress", "componentID", "localPosition", "localRotation", "inputs", "outputs", "customData"},
             new NodeRule[]{IntegerRule.UNSIGNED_INT, IntegerRule.UNSIGNED_INT, TextRule.INSTANCE, ObjectRule.RULE_VEC3, ObjectRule.RULE_QUATERNION, new DynamicArrayRule(Input.EDITABLE_RULE), new DynamicArrayRule(Output.EDITABLE_RULE), new DynamicArrayRule(IntegerRule.UNSIGNED_BYTE)}, true);
-    public static Component deserialize(DataInput input, Component[] components) throws IOException {
+    public static Component deserialize(DataInput input, Map<Integer, Component> components) throws IOException {
         var address = input.readInt();
         var parentAddress = input.readInt();
-        if (parentAddress != 0 && components[parentAddress] == null) throw new IllegalArgumentException("Parent component with ID " + parentAddress + " not found!");
+        if (parentAddress != 0 && !components.containsKey(parentAddress)) throw new IllegalArgumentException("Parent component with ID " + parentAddress + " not found!");
         var componentID = input.readShort();
         var position = SerializationUtil.deserializeVector3f(input);
         var rotation = SerializationUtil.deserializeQuaternionf(input);
-        var inputs = new Input[input.readUnsignedByte()];
+        var inputs = new Input[input.readInt()];
         for (int i = 0; i < inputs.length; i++) {
             inputs[i] = Input.deserialize(input);
         }
-        var outputs = new Output[input.readUnsignedByte()];
+        var outputs = new Output[input.readInt()];
         for (int i = 0; i < outputs.length; i++) {
             outputs[i] = Output.deserialize(input);
         }
-        var customData = new byte[input.readInt()];
-        input.readFully(customData);
+        int customDataLength = input.readInt();
+        byte[] customData;
+        if (customDataLength == -1) {
+            customData = new byte[0];
+        } else {
+            customData = new byte[customDataLength];
+            input.readFully(customData);
+        }
         return new Component(address, parentAddress, componentID, position, rotation, inputs, outputs, customData);
     }
 
@@ -65,16 +73,20 @@ public record Component(int address, int parentAddress, short componentID, Vecto
         output.writeShort(componentID);
         SerializationUtil.serializeVector3f(output, localPosition);
         SerializationUtil.serializeQuaternionf(output, localRotation);
-        output.writeByte(inputs.length);
+        output.writeInt(inputs.length);
         for (var Input: inputs) {
             Input.serialize(output);
         }
-        output.writeByte(outputs.length);
+        output.writeInt(outputs.length);
         for (var Output: outputs) {
             Output.serialize(output);
         }
-        output.writeInt(customData.length);
-        output.write(customData);
+        if (customData.length == 0) {
+            output.writeInt(-1);
+        } else {
+            output.writeInt(customData.length);
+            output.write(customData);
+        }
     }
 
     @Override

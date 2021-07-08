@@ -25,7 +25,7 @@ public class TestJson {
                 Assertions.assertEquals(file.gameVersion(), dFile.gameVersion());
                 Assertions.assertEquals(file.isWorld(), dFile.isWorld());
                 Assertions.assertArrayEquals(file.componentIDs(), dFile.componentIDs());
-                Assertions.assertArrayEquals(file.components(), dFile.components());
+                Assertions.assertEquals(file.components(), dFile.components());
                 Assertions.assertArrayEquals(file.wires(), dFile.wires());
                 Assertions.assertEquals(file.worldCircuitStates(), dFile.worldCircuitStates());
                 Assertions.assertArrayEquals(file.subassemblyCircuitStates(), dFile.subassemblyCircuitStates());

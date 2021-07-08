@@ -17,21 +17,21 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.math.BigInteger;
 
-public record PegAddress(boolean input, int componentAddress, byte pegIndex) implements Serializable, Comparable<PegAddress> {
-    public static final NodeRule RULE = new ObjectRule(new String[]{"input", "componentAddress", "pegIndex"}, new NodeRule[]{BooleanRule.INSTANCE, IntegerRule.UNSIGNED_INT, IntegerRule.UNSIGNED_INT}, true);
+public record PegAddress(boolean input, int componentAddress, int pegIndex) implements Serializable, Comparable<PegAddress> {
+    public static final NodeRule RULE = new ObjectRule(new String[]{"input", "componentAddress", "pegIndex"}, new NodeRule[]{BooleanRule.INSTANCE, IntegerRule.UNSIGNED_INT, IntegerRule.POSITIVE_SIGNED_INT}, true);
     public static PegAddress deserialize(DataInput input) throws IOException {
-        return new PegAddress(input.readBoolean(), input.readInt(), input.readByte());
+        return new PegAddress(input.readBoolean(), input.readInt(), input.readInt());
     }
 
     public static PegAddress fromJson(JsonNode node, boolean verified) throws JsonParseException {
         if (!verified)RULE.verify(node);
-        return new PegAddress(node.get("input").booleanValue(), (int)node.get("componentAddress").longValue(), (byte)node.get("pegIndex").intValue());
+        return new PegAddress(node.get("input").booleanValue(), (int)node.get("componentAddress").longValue(), node.get("pegIndex").intValue());
     }
 
     public void serialize(DataOutput output) throws IOException {
         output.writeBoolean(input);
         output.writeInt(componentAddress);
-        output.writeByte(pegIndex);
+        output.writeInt(pegIndex);
     }
 
     @Override
@@ -39,7 +39,7 @@ public record PegAddress(boolean input, int componentAddress, byte pegIndex) imp
         var result = new ObjectNode(JsonNodeFactory.instance);
         result.put("input", input);
         result.put("componentAddress", Integer.toUnsignedLong(componentAddress));
-        result.put("pegIndex", Byte.toUnsignedInt(pegIndex));
+        result.put("pegIndex", pegIndex);
         return result;
     }
 

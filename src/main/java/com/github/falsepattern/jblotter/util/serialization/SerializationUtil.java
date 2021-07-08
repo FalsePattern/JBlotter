@@ -7,6 +7,8 @@ import org.joml.Vector3f;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 public class SerializationUtil {
     public static Vector3f deserializeVector3f(DataInput input) throws IOException {
@@ -38,6 +40,20 @@ public class SerializationUtil {
         for (int i = start; i < endNonInclusive; i++) {
             array[i].serialize(output);
         }
+    }
+
+    public static String deserializeString(DataInput input) throws IOException {
+        var utf8Bytes = input.readInt();
+        var buffer = new byte[utf8Bytes];
+        input.readFully(buffer, 0, utf8Bytes);
+        return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(buffer)).toString();
+    }
+
+    public static void serializeString(DataOutput output, String str) throws IOException {
+        var utf8 = str.getBytes(StandardCharsets.UTF_8);
+        var utf8Bytes = utf8.length;
+        output.writeInt(utf8Bytes);
+        output.write(utf8);
     }
 
 }

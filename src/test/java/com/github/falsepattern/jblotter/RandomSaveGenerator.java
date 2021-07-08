@@ -1,7 +1,7 @@
 package com.github.falsepattern.jblotter;
 
 import com.github.falsepattern.jblotter.objects.BlotterFile;
-import com.github.falsepattern.jblotter.objects.GameVersion;
+import com.github.falsepattern.jblotter.objects.Version;
 import com.github.falsepattern.jblotter.objects.component.Component;
 import com.github.falsepattern.jblotter.objects.component.Wire;
 import com.github.falsepattern.jblotter.objects.component.pegs.Input;
@@ -12,6 +12,8 @@ import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 
 public class RandomSaveGenerator {
@@ -26,16 +28,17 @@ public class RandomSaveGenerator {
 
     public static BlotterFile generateSave(boolean world) {
         var random = new Random();
-        var gameVersion = new GameVersion(random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE));
+        var gameVersion = new Version(random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE));
         var componentIDs = new String[16 + random.nextInt(64)];
         for (int i = 0; i < componentIDs.length; i++) componentIDs[i] = generateRandomString(random);
-        var components = new Component[128 + random.nextInt(512)];
+        var componentCount = 128 + random.nextInt(512);
+        var components = new HashMap<Integer, Component>();
         var circuitStates = 16 + random.nextInt(65520);
-        for (int i = 1; i < components.length; i++) {
+        for (int i = 1; i < componentCount; i++) {
             short id = (short)random.nextInt(componentIDs.length);
             var inputs = new Input[random.nextInt(255)];
             for (int j = 0; j < inputs.length; j++) {
-                inputs[j] = new Input(random.nextBoolean(), random.nextInt(circuitStates));
+                inputs[j] = new Input(random.nextInt(circuitStates));
             }
             var outputs = new Output[random.nextInt(255)];
             for (int j = 0; j < outputs.length; j++) {
@@ -43,15 +46,15 @@ public class RandomSaveGenerator {
             }
             var customData = new byte[random.nextInt(128)];
             random.nextBytes(customData);
-            components[i] = new Component(i, world ? random.nextInt(i) : i == 1 ? 0 : 1 + random.nextInt(i - 1), id,
+            components.put(i, new Component(i, world ? random.nextInt(i) : i == 1 ? 0 : 1 + random.nextInt(i - 1), id,
                     new Vector3f(random.nextFloat(), random.nextFloat(), random.nextFloat()),
                     new Quaternionf(random.nextFloat(), random.nextFloat(), random.nextFloat(), random.nextFloat()),
-                    inputs, outputs, customData);
+                    inputs, outputs, customData));
         }
         var wires = new Wire[256 + random.nextInt(2048)];
         for (int i = 0; i < wires.length; i++) {
             var firstAddress = generatePegAddress(components, random);
-            var secondAddress =generatePegAddress(components, random);
+            var secondAddress= generatePegAddress(components, random);
             wires[i] = new Wire(firstAddress, secondAddress, random.nextInt(circuitStates), random.nextFloat());
         }
         byte[] states = null;
@@ -65,20 +68,27 @@ public class RandomSaveGenerator {
                 if (random.nextBoolean()) subassemblyCircuitStates.add(i);
             }
         }
-        return new BlotterFile((byte)0x05, gameVersion, world, componentIDs, components, wires, world ? circuitStates : subassemblyCircuitStates.size(), world ? BitSet.valueOf(states) : null, world ? null : subassemblyCircuitStates.stream().mapToInt(Integer::intValue).toArray());
+        var mods = new HashMap<String, Version>();
+        int modCount = random.nextInt(32);
+        for (int i = 0; i < modCount; i++) {
+            var name = generateRandomString(random);
+            var version = new Version(random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE), random.nextInt(Integer.MAX_VALUE));
+            mods.put(name, version);
+        }
+        return new BlotterFile((byte)0x05, gameVersion, mods, world, componentIDs, components, wires, world ? circuitStates : subassemblyCircuitStates.size(), world ? BitSet.valueOf(states) : null, world ? null : subassemblyCircuitStates.stream().mapToInt(Integer::intValue).toArray());
     }
 
-    private static PegAddress generatePegAddress(Component[] components, Random random) {
+    private static PegAddress generatePegAddress(Map<Integer, Component> components, Random random) {
         while (true) {
             var input = random.nextBoolean();
-            var component = components[1 + random.nextInt(components.length - 1)];
-            byte peg;
+            var component = components.get(1 + random.nextInt(components.size()));
+            int peg;
             if (input) {
                 if (component.inputs().length == 0) continue;
-                peg = (byte) random.nextInt(component.inputs().length);
+                peg = random.nextInt(component.inputs().length);
             } else {
                 if (component.outputs().length == 0) continue;
-                peg = (byte) random.nextInt(component.outputs().length);
+                peg = random.nextInt(component.outputs().length);
             }
             return new PegAddress(input, component.address(), peg);
         }

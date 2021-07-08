@@ -97,16 +97,14 @@ public class SignalGraphSolver {
             int id = nextFreeID();
             node.put("circuitStateID", id);
             usedIDs.add(id);
-        } else if (!addr.input() || node.get("exclusive").booleanValue()){
+        } else if (!addr.input()){
             int id = nextFreeID();
             node.put("circuitStateID", id);
             usedIDs.add(id);
-            if (!addr.input()) {
-                for (var wire: wires.values()) {
-                    wire.put("circuitStateID", id);
-                }
-                idStates.put(id, node.get("powered").asBoolean());
+            for (var wire: wires.values()) {
+                wire.put("circuitStateID", id);
             }
+            idStates.put(id, node.get("powered").asBoolean());
         } else {
             int id = -1;
             if (node.has("circuitStateID")) {
@@ -116,7 +114,7 @@ public class SignalGraphSolver {
                 for (var otherAndWire : wires.entrySet()) {
                     var otherAddr = otherAndWire.getKey();
                     var other = addressMap.get(otherAddr);
-                    if (!otherAddr.input() || other.get("exclusive").booleanValue()) continue;
+                    if (!otherAddr.input()) continue;
                     if (other.has("circuitStateID")) {
                         if (!hasID) {
                             hasID = true;
@@ -139,7 +137,7 @@ public class SignalGraphSolver {
                     if (other.get("powered").booleanValue()) {
                         idStates.put(id, true);
                     }
-                } else if (!other.get("exclusive").booleanValue() && nodesToProcess.contains(other)) {
+                } else if (nodesToProcess.contains(other)) {
                     scheduledNodes.add(other);
                     nodesToProcess.remove(other);
                     other.put("circuitStateID", id);

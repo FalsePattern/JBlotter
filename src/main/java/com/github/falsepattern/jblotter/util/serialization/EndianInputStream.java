@@ -55,7 +55,7 @@ public class EndianInputStream extends FilterInputStream implements DataInput {
     @Override
     public int readUnsignedByte() throws IOException {
         int read = read();
-        if (read == -1) throw new EOFException("Reached end of while while trying to read the next byte!");
+        if (read == -1) throw new EOFException("Reached end of file while trying to read the next byte!");
         return read;
     }
 
